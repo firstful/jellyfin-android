@@ -1,7 +1,6 @@
 package org.jellyfin.mobile.webapp
 
 import android.net.http.SslError
-import android.os.Build
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -12,10 +11,8 @@ import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.jellyfin.mobile.MainViewModel
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.utils.CfAccessInterceptor
@@ -95,22 +92,18 @@ abstract class JellyfinWebViewClient(
         val method = request.method
         val requestHeaders = request.requestHeaders
 
+        // Only GET/HEAD can be re-issued through OkHttp — WebResourceRequest has no
+        // request-body accessor in modern API levels, so POST bodies can't be
+        // forwarded. POST requests are covered by the injected JS shim that adds
+        // the CF headers to fetch/XHR calls (see injectionScript.js).
+        if (method != "GET" && method != "HEAD") return null
+
         val builder = Request.Builder()
             .url(url)
             .apply {
                 requestHeaders.forEach { (name, value) -> header(name, value) }
             }
-
-        when (method) {
-            "GET", "HEAD" -> builder.method(method, null)
-            else -> {
-                // WebResourceRequest#getRequestBody requires API 24+
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return null
-                val body = request.getRequestBody() ?: return null
-                val mediaType = requestHeaders["Content-Type"]?.toMediaTypeOrNull()
-                builder.method(method, body.readBytes().toRequestBody(mediaType))
-            }
-        }
+            .method(method, null)
 
         return try {
             val response = okHttpClient.newCall(builder.build()).execute()

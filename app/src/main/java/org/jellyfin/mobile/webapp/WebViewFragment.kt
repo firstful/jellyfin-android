@@ -189,6 +189,7 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
         webChromeClient = JellyfinWebChromeClient(this@WebViewFragment)
         settings.applyDefault()
         addJavascriptInterface(NativeInterface(requireContext()), "NativeInterface")
+        addJavascriptInterface(CfAccessJsBridge(), "CfAccessJsBridge")
         addJavascriptInterface(nativePlayer, "NativePlayer")
         addJavascriptInterface(externalPlayer, "ExternalPlayer")
         addJavascriptInterface(mediaSegments, "MediaSegments")
