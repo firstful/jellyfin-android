@@ -106,7 +106,7 @@ abstract class JellyfinWebViewClient(
             else -> {
                 // WebResourceRequest#getRequestBody requires API 24+
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return null
-                val body = request.requestBody ?: return null
+                val body = request.getRequestBody() ?: return null
                 val mediaType = requestHeaders["Content-Type"]?.toMediaTypeOrNull()
                 builder.method(method, body.readBytes().toRequestBody(mediaType))
             }

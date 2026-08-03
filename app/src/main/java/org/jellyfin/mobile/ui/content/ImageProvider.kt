@@ -126,7 +126,7 @@ class ImageProvider : ContentProvider(), KoinComponent {
             .apply {
                 // Cloudflare Access service token for external access: Coil fetches
                 // images directly from the server, so add the CF headers here too.
-                if (CfAccessInterceptor.isCloudflareProtected(imageUrl.host.orEmpty())) {
+                if (CfAccessInterceptor.isCloudflareProtected(android.net.Uri.parse(imageUrl).host.orEmpty())) {
                     set("CF-Access-Client-Id", BuildConfig.CF_ACCESS_CLIENT_ID)
                     set("CF-Access-Client-Secret", BuildConfig.CF_ACCESS_CLIENT_SECRET)
                 }
