@@ -59,12 +59,17 @@ jobs:
 
       - name: Verify signature
         run: |
+          APK=$(find app/build/outputs -name "*.apk" -path "*release*" | head -1)
+          echo "APK: $APK"
+          [ -n "$APK" ] || { echo "no APK found in app/build/outputs"; exit 1; }
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
-          "$APKSIGNER" verify --print-certs app/build/outputs/apk/proprietary/release/app-proprietary-release.apk | head -6
+          "$APKSIGNER" verify --print-certs "$APK" | head -6
 
       - name: Publish to Sutliff Apps store
         env:
           APPSTORE_PUBLISH_TOKEN: ${{ secrets.APPSTORE_PUBLISH_TOKEN }}
           APPSTORE_URL: http://apps.ffilt.us
         run: |
-          python3 scripts/ci-publish-apk.py app/build/outputs/apk/proprietary/release/app-proprietary-release.apk
+          APK=$(find app/build/outputs -name "*.apk" -path "*release*" | head -1)
+          echo "APK: $APK"
+          python3 scripts/ci-publish-apk.py "$APK"
