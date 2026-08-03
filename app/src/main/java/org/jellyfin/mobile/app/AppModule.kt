@@ -26,7 +26,6 @@ import coil3.ImageLoader
 import kotlinx.coroutines.channels.Channel
 import okhttp3.OkHttpClient
 import org.jellyfin.mobile.MainViewModel
-import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.bridge.MediaSegments
 import org.jellyfin.mobile.bridge.NativePlayer
 import org.jellyfin.mobile.downloads.DownloadManager
@@ -43,7 +42,9 @@ import org.jellyfin.mobile.player.source.MediaSourceResolver
 import org.jellyfin.mobile.player.ui.PlayerFragment
 import org.jellyfin.mobile.setup.ConnectionHelper
 import org.jellyfin.mobile.utils.CfAccessInterceptor
+import org.jellyfin.mobile.utils.CfTokenStore
 import org.jellyfin.mobile.utils.Constants
+import org.jellyfin.mobile.utils.MintClient
 import org.jellyfin.mobile.utils.PermissionRequestHelper
 import org.jellyfin.mobile.utils.extractId
 import org.jellyfin.mobile.utils.isLowRamDevice
@@ -64,11 +65,13 @@ private const val TS_SEARCH_PACKETS = 1800
 
 val applicationModule = module {
     single { AppPreferences(androidApplication()) }
+    single { CfTokenStore(androidApplication()) }
     single {
         OkHttpClient.Builder()
-            .addInterceptor(CfAccessInterceptor())
+            .addInterceptor(CfAccessInterceptor(get()))
             .build()
     }
+    single { MintClient(androidApplication(), get(), get()) }
     single { ImageLoader(androidApplication()) }
     single { PermissionRequestHelper() }
     single { RemoteVolumeProvider(get()) }
@@ -148,8 +151,10 @@ val applicationModule = module {
                 // requests go through ExoPlayer's DataSource, not the SDK OkHttp client,
                 // so the CF headers are added here (only for the jellyfin server host).
                 if (CfAccessInterceptor.isCloudflareProtected(dataSpec.uri.authority.orEmpty())) {
-                    requestHeaders["CF-Access-Client-Id"] = BuildConfig.CF_ACCESS_CLIENT_ID
-                    requestHeaders["CF-Access-Client-Secret"] = BuildConfig.CF_ACCESS_CLIENT_SECRET
+                    get<CfTokenStore>().load()?.let { (clientId, clientSecret) ->
+                        requestHeaders["CF-Access-Client-Id"] = clientId
+                        requestHeaders["CF-Access-Client-Secret"] = clientSecret
+                    }
                 }
 
                 dataSpec.withRequestHeaders(requestHeaders)

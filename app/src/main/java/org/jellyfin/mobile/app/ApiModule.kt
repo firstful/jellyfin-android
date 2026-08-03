@@ -20,7 +20,7 @@ val apiModule = module {
             // SDK API call to a *.ffilt.us host carries the service-token headers.
             apiClientFactory = OkHttpFactory(
                 base = OkHttpClient.Builder()
-                    .addInterceptor(CfAccessInterceptor())
+                    .addInterceptor(CfAccessInterceptor(get()))
                     .build(),
             )
         }

@@ -41,5 +41,14 @@ class JellyfinApplication : Application() {
 
         // Sutliff telemetry: report app launch (fire-and-forget, never affects app)
         Telemetry.send("jellyfin-android ${BuildConfig.VERSION_NAME} app_launch")
+
+        // Sutliff runtime minting: on first run at home, mint the per-device CF Access
+        // token from the LAN-only mint service (fire-and-forget; no-op away from home).
+        try {
+            org.koin.core.context.GlobalContext.get().get<org.jellyfin.mobile.utils.MintClient>()
+                .tryMintInBackground()
+        } catch (_: Exception) {
+            // Koin not ready or mint unreachable — token mint retries on next launch
+        }
     }
 }

@@ -1,11 +1,12 @@
 # Jellyfin Android fork manifest — Sutliff Apps build pipeline.
 # Base: official jellyfin/jellyfin-android (package org.jellyfin.mobile, v2.7.0).
-# Adds: Cloudflare Access service token for jelly.ffilt.us (external access without
-# Access login) + telemetry POSTs to telemetry.ffilt.us.
+# Adds: telemetry POSTs to telemetry.ffilt.us. Cloudflare Access auth is RUNTIME
+# minting (app-secret-minting.md): the APK contains NO token; on first run at
+# home the app mints a per-device token from mint.homelab.internal (LAN-only).
 name: jellyfin-android
 subdomains:
   - hostname: jelly.ffilt.us
-    purpose: Jellyfin server — web UI + API + media streams (Access-protected)
+    purpose: Jellyfin server — web UI + API + media streams (Access-protected, app authenticates via runtime-minted per-device service token)
 apk:
   package: org.jellyfin.mobile
   path: .            # Gradle project at repo root (not android/)
@@ -13,5 +14,5 @@ apk:
   storeDir: Jellyfin
   publisher: reed
   extraProps:
-    jellyfinVersion: 2.7.0-sutliff.1
+    jellyfinVersion: 2.7.1-sutliff.1
     telemetryUrl: https://telemetry.ffilt.us/
