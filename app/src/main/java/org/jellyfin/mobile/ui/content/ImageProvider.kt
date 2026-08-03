@@ -20,6 +20,7 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import org.jellyfin.mobile.BuildConfig
+import org.jellyfin.mobile.utils.CfAccessInterceptor
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.util.AuthorizationHeaderBuilder
@@ -122,6 +123,14 @@ class ImageProvider : ContentProvider(), KoinComponent {
         )
         val headers = NetworkHeaders.Builder()
             .set("Authorization", authorizationHeader)
+            .apply {
+                // Cloudflare Access service token for external access: Coil fetches
+                // images directly from the server, so add the CF headers here too.
+                if (CfAccessInterceptor.isCloudflareProtected(imageUrl.host.orEmpty())) {
+                    set("CF-Access-Client-Id", BuildConfig.CF_ACCESS_CLIENT_ID)
+                    set("CF-Access-Client-Secret", BuildConfig.CF_ACCESS_CLIENT_SECRET)
+                }
+            }
             .build()
 
         val imageRequest = ImageRequest.Builder(context!!)

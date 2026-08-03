@@ -7,6 +7,7 @@ import org.jellyfin.mobile.data.dao.UserDao
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.data.entity.ServerUser
 import org.jellyfin.mobile.data.entity.UserEntity
+import org.jellyfin.mobile.utils.Telemetry
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.DeviceInfo
@@ -30,6 +31,7 @@ class ApiClientController(
             serverDao.getServerByHostname(hostname)?.id ?: serverDao.insert(hostname)
         }
         apiClient.update(baseUrl = hostname)
+        Telemetry.send("server_connect $hostname")
     }
 
     suspend fun setupUser(serverId: Long, userId: UUID, accessToken: String) {

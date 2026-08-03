@@ -37,6 +37,17 @@ android {
         versionCode = getVersionCode(versionName!!)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+
+        // Sutliff pipeline: Cloudflare Access service token + telemetry URL injected
+        // via -PcfAccessClientId / -PcfAccessClientSecret / -PtelemetryUrl (or env
+        // CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET / TELEMETRY_URL). Empty in
+        // debug/unprovisioned builds — the interceptor/telemetry become no-ops.
+        val cfAccessClientId = getProperty("cfAccessClientId") ?: ""
+        val cfAccessClientSecret = getProperty("cfAccessClientSecret") ?: ""
+        val telemetryUrl = getProperty("telemetryUrl") ?: "https://telemetry.ffilt.us/"
+        buildConfigField("String", "CF_ACCESS_CLIENT_ID", "\"$cfAccessClientId\"")
+        buildConfigField("String", "CF_ACCESS_CLIENT_SECRET", "\"$cfAccessClientSecret\"")
+        buildConfigField("String", "TELEMETRY_URL", "\"$telemetryUrl\"")
     }
 
     signingConfigs {

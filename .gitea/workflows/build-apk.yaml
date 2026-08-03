@@ -1,0 +1,82 @@
+name: build-apk
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'app-manifest.yaml'
+      - '.gitea/workflows/build-apk.yaml'
+      - 'scripts/ci-*.py'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [android]
+    container:
+      image: cimg/android:2026.07-node
+      # --user root: the SDK image needs it for apt/pip.
+      # -v gradle-cache: job containers are recreated per run; this persists the
+      # gradle home (dist + deps) across jobs. Volume lives in the runner's DinD
+      # daemon (docker-vol PVC). NOTE: runner-config container.options is
+      # IGNORED when the job sets its own container.options — must repeat here.
+      options: --user root -v gradle-cache:/root/.gradle
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pyyaml (cimg image lacks it)
+        run: |
+          python3 -m pip install --quiet pyyaml 2>/dev/null || sudo apt-get install -y -qq python3-yaml >/dev/null
+          python3 -c "import yaml; print('pyyaml OK')"
+
+      - name: Ensure Cloudflare Access token for subdomain
+        env:
+          CF_MINT_TOKEN: ${{ secrets.CF_MINT_TOKEN }}
+          CF_ACCOUNT_ID: 224469ecf8e8a619106fe8ffa19c7a43
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          SUBDOMAIN=$(python3 -c "import yaml; print(yaml.safe_load(open('app-manifest.yaml'))['subdomains'][0]['hostname'])")
+          python3 scripts/ci-ensure-access-token.py "$SUBDOMAIN" >> "$GITHUB_ENV"
+
+      - name: Decode signing keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > /tmp/keystore.jks
+          chmod 600 /tmp/keystore.jks
+          ls -l /tmp/keystore.jks
+
+      - name: Build + sign release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          JF_VERSION=$(python3 -c "import yaml; print(yaml.safe_load(open('app-manifest.yaml'))['apk']['extraProps']['jellyfinVersion'])")
+          TELEMETRY_URL=$(python3 -c "import yaml; print(yaml.safe_load(open('app-manifest.yaml'))['apk']['extraProps']['telemetryUrl'])")
+          ./gradlew assembleProprietaryRelease \
+            -Pjellyfin.version="$JF_VERSION" \
+            -PcfAccessClientId="$CF_ACCESS_CLIENT_ID" \
+            -PcfAccessClientSecret="$CF_ACCESS_CLIENT_SECRET" \
+            -PtelemetryUrl="$TELEMETRY_URL" \
+            -Pkeystore.file=/tmp/keystore.jks \
+            -Pkeystore.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Psigning.key.alias="$ANDROID_KEY_ALIAS" \
+            -Psigning.key.password="$ANDROID_KEY_PASSWORD"
+
+      - name: Verify signature
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/proprietary/release/app-proprietary-release.apk | head -6
+
+      - name: Publish to Sutliff Apps store
+        env:
+          APPSTORE_PUBLISH_TOKEN: ${{ secrets.APPSTORE_PUBLISH_TOKEN }}
+          APPSTORE_URL: http://apps.ffilt.us
+        run: |
+          python3 scripts/ci-publish-apk.py app/build/outputs/apk/proprietary/release/app-proprietary-release.apk

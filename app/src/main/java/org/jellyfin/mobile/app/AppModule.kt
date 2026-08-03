@@ -41,6 +41,7 @@ import org.jellyfin.mobile.player.qualityoptions.QualityOptionsProvider
 import org.jellyfin.mobile.player.source.MediaSourceResolver
 import org.jellyfin.mobile.player.ui.PlayerFragment
 import org.jellyfin.mobile.setup.ConnectionHelper
+import org.jellyfin.mobile.utils.CfAccessInterceptor
 import org.jellyfin.mobile.utils.Constants
 import org.jellyfin.mobile.utils.PermissionRequestHelper
 import org.jellyfin.mobile.utils.extractId
@@ -62,7 +63,11 @@ private const val TS_SEARCH_PACKETS = 1800
 
 val applicationModule = module {
     single { AppPreferences(androidApplication()) }
-    single { OkHttpClient() }
+    single {
+        OkHttpClient.Builder()
+            .addInterceptor(CfAccessInterceptor())
+            .build()
+    }
     single { ImageLoader(androidApplication()) }
     single { PermissionRequestHelper() }
     single { RemoteVolumeProvider(get()) }
@@ -136,7 +141,17 @@ val applicationModule = module {
                     accessToken = apiClient.accessToken,
                 )
 
-                dataSpec.withRequestHeaders(hashMapOf("Authorization" to authorizationHeaderString))
+                val requestHeaders = hashMapOf("Authorization" to authorizationHeaderString)
+
+                // Cloudflare Access service token for external playback: media stream
+                // requests go through ExoPlayer's DataSource, not the SDK OkHttp client,
+                // so the CF headers are added here (only for the jellyfin server host).
+                if (CfAccessInterceptor.isCloudflareProtected(dataSpec.uri.authority.orEmpty())) {
+                    requestHeaders["CF-Access-Client-Id"] = BuildConfig.CF_ACCESS_CLIENT_ID
+                    requestHeaders["CF-Access-Client-Secret"] = BuildConfig.CF_ACCESS_CLIENT_SECRET
+                }
+
+                dataSpec.withRequestHeaders(requestHeaders)
             } else {
                 dataSpec
             }

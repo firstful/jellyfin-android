@@ -23,6 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import org.jellyfin.mobile.MainViewModel
 import org.jellyfin.mobile.R
 import org.jellyfin.mobile.app.AppPreferences
@@ -53,6 +54,7 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
     val appPreferences: AppPreferences by inject()
     private val mainViewModel: MainViewModel by activityViewModel()
     private val webappFunctionChannel: WebappFunctionChannel by inject()
+    private val okHttpClient: OkHttpClient by inject()
     private lateinit var assetsPathHandler: AssetsPathHandler
     private lateinit var jellyfinWebViewClient: JellyfinWebViewClient
     private val nativePlayer: NativePlayer by inject()
@@ -92,6 +94,7 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
             server,
             assetsPathHandler,
             mainViewModel,
+            okHttpClient,
         ) {
             override fun onConnectedToWebapp() {
                 val webViewBinding = webViewBinding ?: return

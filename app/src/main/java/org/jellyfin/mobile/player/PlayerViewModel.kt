@@ -53,6 +53,7 @@ import org.jellyfin.mobile.player.ui.PlayState
 import org.jellyfin.mobile.player.ui.playermenuhelper.PlayerMenuHelper
 import org.jellyfin.mobile.utils.Constants
 import org.jellyfin.mobile.utils.Constants.SUPPORTED_VIDEO_PLAYER_PLAYBACK_ACTIONS
+import org.jellyfin.mobile.utils.Telemetry
 import org.jellyfin.mobile.utils.applyDefaultAudioAttributes
 import org.jellyfin.mobile.utils.applyDefaultLocalAudioAttributes
 import org.jellyfin.mobile.utils.extensions.end
@@ -314,6 +315,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
         player.playWhenReady = playWhenReady
 
         mediaSession.setMetadata(jellyfinMediaSource.toMediaMetadata())
+
+        // Sutliff telemetry: report playback start (fire-and-forget)
+        Telemetry.send("playback_start ${jellyfinMediaSource.itemId}")
 
         if (jellyfinMediaSource is RemoteJellyfinMediaSource) {
             viewModelScope.launch {

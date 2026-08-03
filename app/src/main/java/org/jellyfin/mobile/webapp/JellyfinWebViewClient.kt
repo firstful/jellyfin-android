@@ -1,6 +1,7 @@
 package org.jellyfin.mobile.webapp
 
 import android.net.http.SslError
+import android.os.Build
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -11,8 +12,13 @@ import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.jellyfin.mobile.MainViewModel
 import org.jellyfin.mobile.data.entity.ServerEntity
+import org.jellyfin.mobile.utils.CfAccessInterceptor
 import org.jellyfin.mobile.utils.Constants
 import org.jellyfin.mobile.utils.initLocale
 import org.jellyfin.mobile.utils.inject
@@ -31,6 +37,7 @@ abstract class JellyfinWebViewClient(
     private val server: ServerEntity,
     private val assetsPathHandler: AssetsPathHandler,
     private val mainViewModel: MainViewModel,
+    private val okHttpClient: OkHttpClient,
 ) : WebViewClientCompat() {
 
     abstract fun onConnectedToWebapp()
@@ -72,7 +79,57 @@ abstract class JellyfinWebViewClient(
                 }
                 null
             }
+            // Cloudflare Access: re-issue requests to *.ffilt.us hosts through the
+            // OkHttp client that carries the CF-Access service-token headers. The
+            // webapp UI + its API XHRs go through the WebView network stack, so this
+            // is required for external access behind CF Access.
+            CfAccessInterceptor.isCloudflareProtected(url.host.orEmpty()) -> {
+                fetchWithCfHeaders(request)
+            }
             else -> null
+        }
+    }
+
+    private fun fetchWithCfHeaders(request: WebResourceRequest): WebResourceResponse? {
+        val url = request.url.toString()
+        val method = request.method
+        val requestHeaders = request.requestHeaders
+
+        val builder = Request.Builder()
+            .url(url)
+            .apply {
+                requestHeaders.forEach { (name, value) -> header(name, value) }
+            }
+
+        when (method) {
+            "GET", "HEAD" -> builder.method(method, null)
+            else -> {
+                // WebResourceRequest#getRequestBody requires API 24+
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return null
+                val body = request.requestBody ?: return null
+                val mediaType = requestHeaders["Content-Type"]?.toMediaTypeOrNull()
+                builder.method(method, body.readBytes().toRequestBody(mediaType))
+            }
+        }
+
+        return try {
+            val response = okHttpClient.newCall(builder.build()).execute()
+            val body = response.body ?: return null
+            val contentType = body.contentType()
+            val mimeType = contentType?.type + "/" + contentType?.subtype
+            val encoding = contentType?.charset()?.name()
+
+            WebResourceResponse(
+                mimeType,
+                encoding,
+                response.code,
+                response.message,
+                response.headers.toMultimap().mapValues { it.value.joinToString(",") },
+                body.byteStream(),
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to re-issue WebView request through CF client: %s", url)
+            null
         }
     }
 

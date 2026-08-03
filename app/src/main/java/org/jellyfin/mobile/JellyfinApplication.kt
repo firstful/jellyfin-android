@@ -6,6 +6,7 @@ import org.jellyfin.mobile.app.apiModule
 import org.jellyfin.mobile.app.applicationModule
 import org.jellyfin.mobile.data.databaseModule
 import org.jellyfin.mobile.utils.JellyTree
+import org.jellyfin.mobile.utils.Telemetry
 import org.jellyfin.mobile.utils.isWebViewSupported
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.fragment.koin.fragmentFactory
@@ -37,5 +38,8 @@ class JellyfinApplication : Application() {
                 databaseModule,
             )
         }
+
+        // Sutliff telemetry: report app launch (fire-and-forget, never affects app)
+        Telemetry.send("jellyfin-android ${BuildConfig.VERSION_NAME} app_launch")
     }
 }
