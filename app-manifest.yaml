@@ -12,7 +12,7 @@ apk:
   path: .            # Gradle project at repo root (not android/)
   task: assembleProprietaryRelease
   storeDir: Jellyfin
-  publisher: reed
+  publisher: reed   # ci: re-trigger after wyse5070 outage
   extraProps:
     jellyfinVersion: 2.7.1-sutliff.1
     telemetryUrl: https://telemetry.ffilt.us/
